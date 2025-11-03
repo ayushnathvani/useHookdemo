@@ -28,6 +28,7 @@ const useInterval = (callback: () => void, delay: number | null) => {
 
 const useTimeout = (callback: () => void, delay: number | null) => {
   const savedCallback = useRef<() => void>(callback);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     savedCallback.current = callback;
@@ -35,10 +36,23 @@ const useTimeout = (callback: () => void, delay: number | null) => {
 
   useEffect(() => {
     if (delay !== null) {
-      const id = setTimeout(() => savedCallback.current?.(), delay);
-      return () => clearTimeout(id);
+      timeoutRef.current = setTimeout(() => savedCallback.current?.(), delay);
+      return () => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+      };
     }
   }, [delay]);
+
+  const clearTimeoutManually = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
+
+  return clearTimeoutManually;
 };
 
 const useCountdown = (targetDate: Date) => {
@@ -92,6 +106,7 @@ const useRandomInterval = (
   maxDelay: number | null,
 ) => {
   const savedCallback = useRef<() => void>(callback);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     savedCallback.current = callback;
@@ -99,16 +114,21 @@ const useRandomInterval = (
 
   useEffect(() => {
     if (minDelay !== null && maxDelay !== null) {
-      const scheduleNext = (): NodeJS.Timeout => {
+      const scheduleNext = (): void => {
         const randomDelay = Math.random() * (maxDelay - minDelay) + minDelay;
-        return setTimeout(() => {
+        intervalRef.current = setTimeout(() => {
           savedCallback.current?.();
           scheduleNext();
         }, randomDelay);
       };
 
-      const id = scheduleNext();
-      return () => clearTimeout(id);
+      scheduleNext();
+
+      return () => {
+        if (intervalRef.current) {
+          clearTimeout(intervalRef.current);
+        }
+      };
     }
   }, [minDelay, maxDelay]);
 };
@@ -211,8 +231,7 @@ const IntervalDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       </View>
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: Auto-refresh data, animations, polling APIs, progress
-        updates
+        Use case: Auto-refresh data, animations, polling APIs, progress updates
       </Text>
     </View>
   );
@@ -221,17 +240,45 @@ const IntervalDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
 const TimeoutDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
   const [message, setMessage] = useState('');
   const [delay, setDelay] = useState(3000);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [isRunning, setIsRunning] = useState(false);
 
   const showMessage = () => {
     setMessage('Timeout started...');
+    setTimeLeft(delay);
+    setIsRunning(true);
   };
 
-  useTimeout(
+  // Countdown display for timeout
+  useInterval(
+    () => {
+      if (isRunning && timeLeft > 0) {
+        setTimeLeft(prev => prev - 100);
+      }
+    },
+    isRunning ? 100 : null,
+  );
+
+  const clearTimeoutManually = useTimeout(
     () => {
       setMessage('Timeout completed! 🎉');
+      setIsRunning(false);
+      setTimeLeft(0);
     },
     message === 'Timeout started...' ? delay : null,
   );
+
+  const clearMessage = () => {
+    setMessage('');
+    setTimeLeft(0);
+    setIsRunning(false);
+    clearTimeoutManually();
+  };
+
+  const formatTime = (ms: number) => {
+    const seconds = Math.ceil(ms / 1000);
+    return `${seconds}s`;
+  };
 
   return (
     <View style={[styles.demoCard, isDarkMode && styles.darkCard]}>
@@ -254,8 +301,33 @@ const TimeoutDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
           keyboardType="numeric"
         />
 
-        <TouchableOpacity style={styles.button} onPress={showMessage}>
-          <Text style={styles.buttonText}>Start Timeout ({delay}ms)</Text>
+        {/* Timeout Progress Display */}
+        {isRunning && timeLeft > 0 && (
+          <View style={styles.progressContainer}>
+            <Text style={[styles.progressText, isDarkMode && styles.darkText]}>
+              Time remaining: {formatTime(timeLeft)}
+            </Text>
+            <View style={styles.progressBar}>
+              <View
+                style={[
+                  styles.progressFill,
+                  { width: `${(timeLeft / delay) * 100}%` },
+                ]}
+              />
+            </View>
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={[styles.button, isRunning && styles.disabledButton]}
+          onPress={showMessage}
+          disabled={isRunning}
+        >
+          <Text style={styles.buttonText}>
+            {isRunning
+              ? `Running... (${delay}ms)`
+              : `Start Timeout (${delay}ms)`}
+          </Text>
         </TouchableOpacity>
 
         {message && (
@@ -268,16 +340,16 @@ const TimeoutDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
 
         <TouchableOpacity
           style={[styles.button, styles.secondaryButton]}
-          onPress={() => setMessage('')}
+          onPress={clearMessage}
         >
           <Text style={[styles.buttonText, styles.secondaryButtonText]}>
-            Clear
+            {isRunning ? 'Cancel' : 'Clear'}
           </Text>
         </TouchableOpacity>
       </View>
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: Notifications, auto-save, delayed actions, UI feedback
+        Use case: Notifications, auto-save, delayed actions, UI feedback
       </Text>
     </View>
   );
@@ -298,6 +370,9 @@ const CountdownDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
   const isFinished =
     days === 0 && hours === 0 && minutes === 0 && seconds === 0;
 
+  // Format numbers to always show 2 digits
+  const formatTime = (time: number) => time.toString().padStart(2, '0');
+
   return (
     <View style={[styles.demoCard, isDarkMode && styles.darkCard]}>
       <Text style={[styles.demoTitle, isDarkMode && styles.darkText]}>
@@ -310,9 +385,11 @@ const CountdownDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       </Text>
 
       <View style={styles.countdownDisplay}>
-        <View style={styles.countdownUnit}>
+        <View
+          style={[styles.countdownUnit, isDarkMode && styles.darkCountdownUnit]}
+        >
           <Text style={[styles.countdownNumber, isDarkMode && styles.darkText]}>
-            {days}
+            {formatTime(days)}
           </Text>
           <Text
             style={[
@@ -323,9 +400,16 @@ const CountdownDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
             Days
           </Text>
         </View>
-        <View style={styles.countdownUnit}>
+        <Text
+          style={[styles.countdownSeparator, isDarkMode && styles.darkText]}
+        >
+          :
+        </Text>
+        <View
+          style={[styles.countdownUnit, isDarkMode && styles.darkCountdownUnit]}
+        >
           <Text style={[styles.countdownNumber, isDarkMode && styles.darkText]}>
-            {hours}
+            {formatTime(hours)}
           </Text>
           <Text
             style={[
@@ -336,9 +420,16 @@ const CountdownDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
             Hours
           </Text>
         </View>
-        <View style={styles.countdownUnit}>
+        <Text
+          style={[styles.countdownSeparator, isDarkMode && styles.darkText]}
+        >
+          :
+        </Text>
+        <View
+          style={[styles.countdownUnit, isDarkMode && styles.darkCountdownUnit]}
+        >
           <Text style={[styles.countdownNumber, isDarkMode && styles.darkText]}>
-            {minutes}
+            {formatTime(minutes)}
           </Text>
           <Text
             style={[
@@ -349,9 +440,16 @@ const CountdownDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
             Minutes
           </Text>
         </View>
-        <View style={styles.countdownUnit}>
+        <Text
+          style={[styles.countdownSeparator, isDarkMode && styles.darkText]}
+        >
+          :
+        </Text>
+        <View
+          style={[styles.countdownUnit, isDarkMode && styles.darkCountdownUnit]}
+        >
           <Text style={[styles.countdownNumber, isDarkMode && styles.darkText]}>
-            {seconds}
+            {formatTime(seconds)}
           </Text>
           <Text
             style={[
@@ -391,7 +489,7 @@ const CountdownDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       </View>
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: Event countdowns, time-limited offers, exam timers, break
+        Use case: Event countdowns, time-limited offers, exam timers, break
         timers
       </Text>
     </View>
@@ -495,7 +593,7 @@ const DebounceDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       </View>
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: Search inputs, API calls, form validation, resize handlers
+        Use case: Search inputs, API calls, form validation, resize handlers
       </Text>
     </View>
   );
@@ -505,9 +603,11 @@ const ThrottleDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
   const [clickCount, setClickCount] = useState(0);
   const [throttledCount, setThrottledCount] = useState(0);
   const [limit, setLimit] = useState(1000);
+  const [lastThrottledTime, setLastThrottledTime] = useState(0);
 
   const throttledIncrement = useThrottle(() => {
     setThrottledCount(prev => prev + 1);
+    setLastThrottledTime(Date.now());
   }, limit);
 
   const handleClick = () => {
@@ -518,7 +618,13 @@ const ThrottleDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
   const reset = () => {
     setClickCount(0);
     setThrottledCount(0);
+    setLastThrottledTime(0);
   };
+
+  // Calculate time until next throttled call is allowed
+  const now = Date.now();
+  const timeSinceLastThrottle = now - lastThrottledTime;
+  const timeUntilNext = Math.max(0, limit - timeSinceLastThrottle);
 
   return (
     <View style={[styles.demoCard, isDarkMode && styles.darkCard]}>
@@ -532,7 +638,9 @@ const ThrottleDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       </Text>
 
       <View style={styles.throttleContainer}>
-        <View style={styles.throttleStats}>
+        <View
+          style={[styles.throttleStats, isDarkMode && styles.darkThrottleStats]}
+        >
           <Text style={[styles.statText, isDarkMode && styles.darkText]}>
             Total Clicks: {clickCount}
           </Text>
@@ -542,6 +650,13 @@ const ThrottleDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
           <Text style={[styles.statText, isDarkMode && styles.darkDescription]}>
             Limit: {limit}ms
           </Text>
+          {lastThrottledTime > 0 && (
+            <Text
+              style={[styles.statText, isDarkMode && styles.darkDescription]}
+            >
+              Next allowed in: {Math.ceil(timeUntilNext)}ms
+            </Text>
+          )}
         </View>
 
         <TextInput
@@ -558,8 +673,18 @@ const ThrottleDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
         />
 
         <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.button} onPress={handleClick}>
-            <Text style={styles.buttonText}>Click Me Fast! 🚀</Text>
+          <TouchableOpacity
+            style={[
+              styles.button,
+              styles.clickButton,
+              timeUntilNext > 0 && styles.throttledButton,
+            ]}
+            onPress={handleClick}
+          >
+            <Text style={styles.buttonText}>
+              Click Me Fast! 🚀{' '}
+              {timeUntilNext > 0 ? `(${Math.ceil(timeUntilNext)}ms)` : ''}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.button, styles.secondaryButton]}
@@ -580,8 +705,7 @@ const ThrottleDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       </View>
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: Scroll handlers, button clicks, API rate limiting,
-        animations
+        Use case: Scroll handlers, button clicks, API rate limiting, animations
       </Text>
     </View>
   );
@@ -687,7 +811,7 @@ const RandomIntervalDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       </View>
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: Animations, game events, notifications, simulating human
+        Use case: Animations, game events, notifications, simulating human
         behavior
       </Text>
     </View>
@@ -796,7 +920,7 @@ const IntervalWhenDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       </View>
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: Conditional polling, user activity monitoring, game loops
+        Use case: Conditional polling, user activity monitoring, game loops
       </Text>
     </View>
   );
@@ -1084,6 +1208,54 @@ const styles = StyleSheet.create({
   },
   darkDescription: {
     color: '#888',
+  },
+  progressContainer: {
+    width: '100%',
+    marginVertical: 12,
+    alignItems: 'center',
+  },
+  progressText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1976d2',
+    marginBottom: 8,
+  },
+  progressBar: {
+    width: '100%',
+    height: 8,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#1976d2',
+    borderRadius: 4,
+  },
+  disabledButton: {
+    backgroundColor: '#999',
+    opacity: 0.6,
+  },
+  countdownSeparator: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1976d2',
+    marginHorizontal: 4,
+    alignSelf: 'center',
+    marginTop: 12,
+  },
+  darkCountdownUnit: {
+    backgroundColor: '#3a3a3a',
+  },
+  clickButton: {
+    flex: 1,
+    marginRight: 8,
+  },
+  throttledButton: {
+    backgroundColor: '#ff9800',
+  },
+  darkThrottleStats: {
+    backgroundColor: '#3a3a3a',
   },
 });
 

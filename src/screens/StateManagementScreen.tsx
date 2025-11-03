@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   useColorScheme,
   Alert,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   useCounter,
   useToggle,
@@ -18,6 +19,112 @@ import {
   useDefault,
 } from '@uidotdev/usehooks';
 
+// Custom useLocalStorage hook implementation for React Native
+function useLocalStorage<T>(key: string, initialValue: T) {
+  const [storedValue, setStoredValue] = useState<T>(initialValue);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load value from AsyncStorage on mount
+  useEffect(() => {
+    const loadStoredValue = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const item = await AsyncStorage.getItem(key);
+        if (item !== null) {
+          setStoredValue(JSON.parse(item));
+        }
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : 'Failed to load from storage',
+        );
+        console.warn(`Error loading ${key} from AsyncStorage:`, err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadStoredValue();
+  }, [key]);
+
+  const setValue = useCallback(
+    async (value: T | ((val: T) => T)) => {
+      try {
+        setError(null);
+        const valueToStore =
+          value instanceof Function ? value(storedValue) : value;
+        setStoredValue(valueToStore);
+        await AsyncStorage.setItem(key, JSON.stringify(valueToStore));
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : 'Failed to save to storage',
+        );
+        console.warn(`Error saving ${key} to AsyncStorage:`, err);
+      }
+    },
+    [key, storedValue],
+  );
+
+  const removeValue = useCallback(async () => {
+    try {
+      setError(null);
+      setStoredValue(initialValue);
+      await AsyncStorage.removeItem(key);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to remove from storage',
+      );
+      console.warn(`Error removing ${key} from AsyncStorage:`, err);
+    }
+  }, [key, initialValue]);
+
+  return [storedValue, setValue, removeValue, { isLoading, error }] as const;
+}
+const useBoolean = (initialValue = false) => {
+  const [value, setValue] = useState(initialValue);
+
+  const setTrue = useCallback(() => setValue(true), []);
+  const setFalse = useCallback(() => setValue(false), []);
+  const toggle = useCallback(() => setValue(prev => !prev), []);
+
+  return [value, { setTrue, setFalse, toggle, setValue }] as const;
+};
+
+// Custom useObjectState hook implementation
+const useObjectState = <T extends Record<string, any>>(initialState: T) => {
+  const [state, setState] = useState(initialState);
+
+  const updateState = useCallback(
+    (updates: Partial<T> | ((prev: T) => Partial<T>)) => {
+      setState(prev => {
+        if (typeof updates === 'function') {
+          return { ...prev, ...updates(prev) };
+        }
+        return { ...prev, ...updates };
+      });
+    },
+    [],
+  );
+
+  const resetState = useCallback(() => {
+    setState(initialState);
+  }, [initialState]);
+
+  const setProperty = useCallback(
+    <K extends keyof T>(key: K, value: T[K]) => {
+      updateState({ [key as string]: value } as unknown as Partial<T>);
+    },
+    [updateState],
+  );
+
+  const mergeState = useCallback((newState: T) => {
+    setState(newState);
+  }, []);
+
+  return [state, { updateState, resetState, setProperty, mergeState }] as const;
+};
+
 const StateManagementScreen = () => {
   const isDarkMode = useColorScheme() === 'dark';
 
@@ -25,6 +132,7 @@ const StateManagementScreen = () => {
     <ScrollView style={[styles.container, isDarkMode && styles.darkContainer]}>
       <CounterDemo isDarkMode={isDarkMode} />
       <ToggleDemo isDarkMode={isDarkMode} />
+      <BooleanDemo isDarkMode={isDarkMode} />
       <LocalStorageDemo isDarkMode={isDarkMode} />
       <ObjectStateDemo isDarkMode={isDarkMode} />
       <ListDemo isDarkMode={isDarkMode} />
@@ -85,7 +193,7 @@ const CounterDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       </View>
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: Shopping cart quantities, pagination, rating systems
+        Use case: Shopping cart quantities, pagination, rating systems
       </Text>
     </View>
   );
@@ -123,24 +231,194 @@ const ToggleDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       </View>
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: Feature flags, settings toggles, modal visibility
+        Use case: Feature flags, settings toggles, modal visibility
+      </Text>
+    </View>
+  );
+};
+
+const BooleanDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
+  const [
+    isModalVisible,
+    { setTrue: showModal, setFalse: hideModal, toggle: toggleModal },
+  ] = useBoolean(false);
+  const [
+    isLoading,
+    { setTrue: startLoading, setFalse: stopLoading, toggle: toggleLoading },
+  ] = useBoolean(false);
+  const [
+    hasPermission,
+    {
+      setTrue: grantPermission,
+      setFalse: revokePermission,
+      toggle: togglePermission,
+    },
+  ] = useBoolean(true);
+
+  const simulateAsyncOperation = () => {
+    startLoading();
+    setTimeout(() => {
+      stopLoading();
+      showModal();
+    }, 2000);
+  };
+
+  return (
+    <View style={[styles.demoCard, isDarkMode && styles.darkCard]}>
+      <Text style={[styles.demoTitle, isDarkMode && styles.darkText]}>
+        useBoolean
+      </Text>
+      <Text
+        style={[styles.demoDescription, isDarkMode && styles.darkDescription]}
+      >
+        Manage boolean state with semantic helper methods
+      </Text>
+
+      <View style={styles.booleanContainer}>
+        <View style={styles.booleanItem}>
+          <Text style={[styles.booleanLabel, isDarkMode && styles.darkText]}>
+            Modal: {isModalVisible ? 'Visible' : 'Hidden'}
+          </Text>
+          <View style={styles.booleanButtons}>
+            <TouchableOpacity
+              style={[
+                styles.smallButton,
+                isModalVisible && styles.activeButton,
+              ]}
+              onPress={showModal}
+            >
+              <Text
+                style={[
+                  styles.smallButtonText,
+                  isModalVisible && styles.activeButtonText,
+                ]}
+              >
+                Show
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.smallButton,
+                !isModalVisible && styles.activeButton,
+              ]}
+              onPress={hideModal}
+            >
+              <Text
+                style={[
+                  styles.smallButtonText,
+                  !isModalVisible && styles.activeButtonText,
+                ]}
+              >
+                Hide
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.smallButton, styles.secondaryButton]}
+              onPress={toggleModal}
+            >
+              <Text
+                style={[styles.smallButtonText, styles.secondaryButtonText]}
+              >
+                Toggle
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.booleanItem}>
+          <Text style={[styles.booleanLabel, isDarkMode && styles.darkText]}>
+            Loading: {isLoading ? 'Yes' : 'No'}
+          </Text>
+          <View style={styles.booleanButtons}>
+            <TouchableOpacity
+              style={[styles.button, styles.secondaryButton]}
+              onPress={simulateAsyncOperation}
+              disabled={isLoading}
+            >
+              <Text style={[styles.buttonText, styles.secondaryButtonText]}>
+                {isLoading ? 'Loading...' : 'Start Operation'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.smallButton]}
+              onPress={toggleLoading}
+            >
+              <Text style={styles.smallButtonText}>Toggle</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.booleanItem}>
+          <Text style={[styles.booleanLabel, isDarkMode && styles.darkText]}>
+            Permission: {hasPermission ? 'Granted' : 'Denied'}
+          </Text>
+          <View style={styles.booleanButtons}>
+            <TouchableOpacity
+              style={[styles.smallButton, hasPermission && styles.activeButton]}
+              onPress={grantPermission}
+            >
+              <Text
+                style={[
+                  styles.smallButtonText,
+                  hasPermission && styles.activeButtonText,
+                ]}
+              >
+                Grant
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.smallButton,
+                !hasPermission && styles.activeButton,
+              ]}
+              onPress={revokePermission}
+            >
+              <Text
+                style={[
+                  styles.smallButtonText,
+                  !hasPermission && styles.activeButtonText,
+                ]}
+              >
+                Revoke
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.smallButton, styles.secondaryButton]}
+              onPress={togglePermission}
+            >
+              <Text
+                style={[styles.smallButtonText, styles.secondaryButtonText]}
+              >
+                Toggle
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+
+      <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
+        Use case: Modal visibility, feature toggles, UI state management,
+        permission states
       </Text>
     </View>
   );
 };
 
 const LocalStorageDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
-  // Note: In React Native, we'll simulate localStorage with a simple state
   const [name, setName] = useState('');
-  const [storedName, setStoredName] = useState('');
+  const [storedName, setStoredName, removeStoredName, { isLoading, error }] =
+    useLocalStorage('user-name', '');
 
-  const saveName = () => {
-    setStoredName(name);
-    Alert.alert('Saved!', `Name "${name}" saved to storage`);
+  const saveName = async () => {
+    if (name.trim()) {
+      await setStoredName(name.trim());
+      Alert.alert('Saved!', `Name "${name.trim()}" saved to AsyncStorage`);
+      setName('');
+    }
   };
 
-  const clearStorage = () => {
-    setStoredName('');
+  const clearStorage = async () => {
+    await removeStoredName();
     Alert.alert('Cleared!', 'Storage cleared');
   };
 
@@ -152,8 +430,20 @@ const LocalStorageDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       <Text
         style={[styles.demoDescription, isDarkMode && styles.darkDescription]}
       >
-        Persist state in localStorage (simulated in React Native)
+        Persist state in AsyncStorage with automatic loading and error handling
       </Text>
+
+      {isLoading && (
+        <Text style={[styles.loadingText, isDarkMode && styles.darkText]}>
+          Loading from storage...
+        </Text>
+      )}
+
+      {error && (
+        <Text style={[styles.errorText, isDarkMode && styles.darkText]}>
+          Error: {error}
+        </Text>
+      )}
 
       <TextInput
         style={[styles.input, isDarkMode && styles.darkInput]}
@@ -164,7 +454,11 @@ const LocalStorageDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       />
 
       <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.button} onPress={saveName}>
+        <TouchableOpacity
+          style={[styles.button, !name.trim() && styles.disabledButton]}
+          onPress={saveName}
+          disabled={!name.trim()}
+        >
           <Text style={styles.buttonText}>Save</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -177,40 +471,56 @@ const LocalStorageDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
         </TouchableOpacity>
       </View>
 
-      {storedName && (
-        <Text style={[styles.storedValue, isDarkMode && styles.darkText]}>
-          Stored: {storedName}
+      {storedName && !isLoading && (
+        <View style={styles.storedContainer}>
+          <Text style={[styles.storedLabel, isDarkMode && styles.darkText]}>
+            Stored in AsyncStorage:
+          </Text>
+          <Text style={[styles.storedValue, isDarkMode && styles.darkText]}>
+            {storedName}
+          </Text>
+        </View>
+      )}
+
+      {!storedName && !isLoading && (
+        <Text style={[styles.emptyState, isDarkMode && styles.darkDescription]}>
+          No data in storage
         </Text>
       )}
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: User preferences, theme settings, form drafts
+        Use case: User preferences, theme settings, form drafts, offline data
+        persistence
       </Text>
     </View>
   );
 };
 
 const ObjectStateDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
-  const [user, setUser] = useState({
-    name: 'John Doe',
-    email: 'john@example.com',
-    age: 30,
+  const [user, { updateState, resetState, setProperty }] = useObjectState({
+    name: 'Ayush',
+    email: 'ayush@example.com',
+    age: 22,
     isAdmin: false,
+    preferences: {
+      theme: 'light' as 'light' | 'dark',
+      notifications: true,
+      language: 'en',
+    },
   });
 
-  const updateUser = (updates: Partial<typeof user>) => {
-    setUser(prev => ({ ...prev, ...updates }));
-  };
+  const [newName, setNewName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
 
   return (
     <View style={[styles.demoCard, isDarkMode && styles.darkCard]}>
       <Text style={[styles.demoTitle, isDarkMode && styles.darkText]}>
-        Object State (useState)
+        useObjectState
       </Text>
       <Text
         style={[styles.demoDescription, isDarkMode && styles.darkDescription]}
       >
-        Manage complex object state with partial updates
+        Manage complex object state with partial updates and nested properties
       </Text>
 
       <View style={styles.objectDisplay}>
@@ -226,25 +536,134 @@ const ObjectStateDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
         <Text style={[styles.objectText, isDarkMode && styles.darkText]}>
           Admin: {user.isAdmin ? 'Yes' : 'No'}
         </Text>
+        <Text style={[styles.objectText, isDarkMode && styles.darkText]}>
+          Theme: {user.preferences.theme}
+        </Text>
+        <Text style={[styles.objectText, isDarkMode && styles.darkText]}>
+          Notifications: {user.preferences.notifications ? 'On' : 'Off'}
+        </Text>
       </View>
 
-      <View style={styles.buttonRow}>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => updateUser({ age: user.age + 1 })}
-        >
-          <Text style={styles.buttonText}>Age +1</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => updateUser({ isAdmin: !user.isAdmin })}
-        >
-          <Text style={styles.buttonText}>Toggle Admin</Text>
-        </TouchableOpacity>
+      <View style={styles.objectControls}>
+        <View style={styles.inputGroup}>
+          <TextInput
+            style={[styles.input, styles.flex1, isDarkMode && styles.darkInput]}
+            value={newName}
+            onChangeText={setNewName}
+            placeholder="Enter new name"
+            placeholderTextColor={isDarkMode ? '#888' : '#666'}
+          />
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => {
+              if (newName.trim()) {
+                setProperty('name', newName.trim());
+                setNewName('');
+              }
+            }}
+          >
+            <Text style={styles.buttonText}>Update Name</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.inputGroup}>
+          <TextInput
+            style={[styles.input, styles.flex1, isDarkMode && styles.darkInput]}
+            value={newEmail}
+            onChangeText={setNewEmail}
+            placeholder="Enter new email"
+            placeholderTextColor={isDarkMode ? '#888' : '#666'}
+            keyboardType="email-address"
+          />
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => {
+              if (newEmail.trim()) {
+                setProperty('email', newEmail.trim());
+                setNewEmail('');
+              }
+            }}
+          >
+            <Text style={styles.buttonText}>Update Email</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => setProperty('age', user.age + 1)}
+          >
+            <Text style={styles.buttonText}>Age +1</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => setProperty('isAdmin', !user.isAdmin)}
+          >
+            <Text style={styles.buttonText}>Toggle Admin</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() =>
+              updateState({
+                preferences: {
+                  ...user.preferences,
+                  theme: user.preferences.theme === 'light' ? 'dark' : 'light',
+                },
+              })
+            }
+          >
+            <Text style={styles.buttonText}>Toggle Theme</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() =>
+              updateState({
+                preferences: {
+                  ...user.preferences,
+                  notifications: !user.preferences.notifications,
+                },
+              })
+            }
+          >
+            <Text style={styles.buttonText}>Toggle Notifications</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={[styles.button, styles.secondaryButton]}
+            onPress={() =>
+              updateState(prev => ({
+                age: prev.age + 5,
+                name: `${prev.name} (Updated)`,
+                preferences: {
+                  ...prev.preferences,
+                  language: prev.preferences.language === 'en' ? 'es' : 'en',
+                },
+              }))
+            }
+          >
+            <Text style={[styles.buttonText, styles.secondaryButtonText]}>
+              Batch Update
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, styles.secondaryButton]}
+            onPress={resetState}
+          >
+            <Text style={[styles.buttonText, styles.secondaryButtonText]}>
+              Reset All
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: User profiles, form state, complex configurations
+        Use case: User profiles, form management, settings, complex state
+        updates
       </Text>
     </View>
   );
@@ -312,7 +731,7 @@ const ListDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       </TouchableOpacity>
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: Todo lists, shopping carts, tag management
+        Use case: Todo lists, shopping carts, tag management
       </Text>
     </View>
   );
@@ -384,7 +803,7 @@ const MapDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       </View>
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: Configuration mapping, caching, key-value stores
+        Use case: Configuration mapping, caching, key-value stores
       </Text>
     </View>
   );
@@ -464,7 +883,7 @@ const SetDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       </TouchableOpacity>
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: Tag selection, unique filters, permissions
+        Use case: Tag selection, unique filters, permissions
       </Text>
     </View>
   );
@@ -545,7 +964,7 @@ const QueueDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       </View>
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: Task processing, breadcrumb navigation, undo/redo
+        Use case: Task processing, breadcrumb navigation, undo/redo
       </Text>
     </View>
   );
@@ -595,7 +1014,7 @@ const DefaultDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       </View>
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: Form placeholders, fallback values, empty states
+        Use case: Form placeholders, fallback values, empty states
       </Text>
     </View>
   );
@@ -864,11 +1283,100 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontWeight: '500',
   },
+  booleanContainer: {
+    marginBottom: 12,
+  },
+  booleanItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#2196f3',
+  },
+  booleanLabel: {
+    fontSize: 16,
+    color: '#333',
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  booleanButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  smallButton: {
+    backgroundColor: '#e3f2fd',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginRight: 8,
+    marginBottom: 4,
+  },
+  smallButtonText: {
+    fontSize: 14,
+    color: '#1976d2',
+    fontWeight: '500',
+  },
+  activeButton: {
+    backgroundColor: '#2196f3',
+  },
+  activeButtonText: {
+    color: '#fff',
+  },
+  objectControls: {
+    marginBottom: 12,
+  },
+  inputGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
   darkText: {
     color: '#fff',
   },
   darkDescription: {
     color: '#888',
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 8,
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#d32f2f',
+    textAlign: 'center',
+    paddingVertical: 8,
+    backgroundColor: '#ffebee',
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  disabledButton: {
+    backgroundColor: '#ccc',
+    opacity: 0.6,
+  },
+  storedContainer: {
+    backgroundColor: '#e8f5e8',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  storedLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  emptyState: {
+    fontSize: 14,
+    color: '#999',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 12,
   },
 });
 

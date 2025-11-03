@@ -17,10 +17,9 @@ const ExamplesListScreen = () => {
   const examples = [
     {
       id: 'shopping-cart',
-      title: '🛒 Shopping Cart',
+      title: ' Shopping Cart',
       description:
         'Complete e-commerce cart with useList, useCounter, and local state management',
-      difficulty: 'Intermediate',
       hooks: ['useList', 'useCounter', 'useState'],
       features: [
         'Add/Remove items',
@@ -29,26 +28,12 @@ const ExamplesListScreen = () => {
         'Cart persistence',
       ],
     },
-    {
-      id: 'live-search',
-      title: '🔍 Live Search & Filter',
-      description:
-        'Real-time search with debouncing, API simulation, and result filtering',
-      difficulty: 'Beginner',
-      hooks: ['useDebounce', 'useState', 'useEffect'],
-      features: [
-        'Debounced input',
-        'API simulation',
-        'Loading states',
-        'Result highlighting',
-      ],
-    },
+
     {
       id: 'smart-form',
-      title: '📝 Smart Form Validation',
+      title: ' Smart Form Validation',
       description:
         'Advanced form with validation, change tracking, and user experience optimizations',
-      difficulty: 'Intermediate',
       hooks: ['useState', 'usePrevious', 'useEffect'],
       features: [
         'Real-time validation',
@@ -57,74 +42,19 @@ const ExamplesListScreen = () => {
         'Success states',
       ],
     },
-    {
-      id: 'live-chat',
-      title: '💬 Live Chat Interface',
-      description:
-        'Real-time messaging interface with typing indicators and message management',
-      difficulty: 'Intermediate',
-      hooks: ['useList', 'useToggle', 'useState'],
-      features: [
-        'Message history',
-        'Typing indicators',
-        'Auto-scroll',
-        'Timestamp display',
-      ],
-    },
-    {
-      id: 'game-system',
-      title: '🎮 Game Score System',
-      description:
-        'Complete game mechanics with scoring, levels, lives, and state persistence',
-      difficulty: 'Advanced',
-      hooks: ['useCounter', 'usePrevious', 'useState', 'useCallback'],
-      features: [
-        'Score tracking',
-        'Level progression',
-        'Lives system',
-        'High score persistence',
-      ],
-    },
+
     {
       id: 'todo-app',
-      title: '✅ Advanced Todo App',
+      title: ' Advanced Todo App',
       description:
         'Feature-rich todo application with categories, priorities, and filters',
-      difficulty: 'Intermediate',
+      // difficulty: 'Intermediate',
       hooks: ['useList', 'useToggle', 'useState', 'useLocalStorage'],
       features: [
         'Categories',
         'Priority levels',
         'Due dates',
         'Filtering & search',
-      ],
-    },
-    {
-      id: 'dashboard',
-      title: '📊 Analytics Dashboard',
-      description:
-        'Interactive dashboard with charts, real-time data, and customizable widgets',
-      difficulty: 'Advanced',
-      hooks: ['useState', 'useEffect', 'useInterval', 'usePrevious'],
-      features: [
-        'Real-time charts',
-        'Widget system',
-        'Data visualization',
-        'Auto-refresh',
-      ],
-    },
-    {
-      id: 'media-player',
-      title: '🎵 Media Player',
-      description:
-        'Full-featured media player with playlists, controls, and progress tracking',
-      difficulty: 'Advanced',
-      hooks: ['useState', 'useInterval', 'useToggle', 'useList'],
-      features: [
-        'Playlist management',
-        'Progress tracking',
-        'Volume control',
-        'Shuffle & repeat',
       ],
     },
   ];
@@ -150,6 +80,9 @@ const ExamplesListScreen = () => {
       case 'shopping-cart':
         (navigation as any).navigate('ShoppingCart');
         break;
+      case 'smart-form':
+        (navigation as any).navigate('SmartFormValidation');
+        break;
       default:
         // For now, show alert for other examples
         Alert.alert(
@@ -161,14 +94,14 @@ const ExamplesListScreen = () => {
 
   return (
     <ScrollView style={[styles.container, isDarkMode && styles.darkContainer]}>
-      <View style={styles.header}>
+      {/* <View style={styles.header}>
         <Text style={[styles.title, isDarkMode && styles.darkText]}>
           Real-World Examples
         </Text>
         <Text style={[styles.subtitle, isDarkMode && styles.darkDescription]}>
           Comprehensive demonstrations of useHooks in practical applications
         </Text>
-      </View>
+      </View> */}
 
       {examples.map(example => (
         <TouchableOpacity
@@ -181,12 +114,7 @@ const ExamplesListScreen = () => {
             <Text style={[styles.exampleTitle, isDarkMode && styles.darkText]}>
               {example.title}
             </Text>
-            <View
-              style={[
-                styles.difficultyBadge,
-                { backgroundColor: getDifficultyColor(example.difficulty) },
-              ]}
-            >
+            <View>
               <Text style={styles.difficultyText}>{example.difficulty}</Text>
             </View>
           </View>

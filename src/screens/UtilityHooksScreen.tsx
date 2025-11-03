@@ -154,7 +154,7 @@ const PreviousDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       </View>
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: Animations, form validation, undo functionality, comparing
+        Use case: Animations, form validation, undo functionality, comparing
         state changes
       </Text>
     </View>
@@ -243,7 +243,7 @@ const RenderCountDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       </View>
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: Performance debugging, optimization analysis, render
+        Use case: Performance debugging, optimization analysis, render
         tracking
       </Text>
     </View>
@@ -314,12 +314,12 @@ const FirstRenderDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
         <Text
           style={[styles.firstRenderTip, isDarkMode && styles.darkDescription]}
         >
-          💡 Click increment to trigger re-renders and see the status change
+          Click increment to trigger re-renders and see the status change
         </Text>
       </View>
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: Conditional effects, initialization logic, first-render
+        Use case: Conditional effects, initialization logic, first-render
         animations
       </Text>
     </View>
@@ -397,7 +397,7 @@ const CopyToClipboardDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       </View>
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: Share functionality, copy codes/links, text selection tools
+        Use case: Share functionality, copy codes/links, text selection tools
       </Text>
     </View>
   );
@@ -499,7 +499,7 @@ const LoggerDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       </View>
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: Development debugging, performance monitoring, state
+        Use case: Development debugging, performance monitoring, state
         tracking
       </Text>
     </View>
@@ -597,7 +597,7 @@ const DefaultDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
       </View>
 
       <Text style={[styles.useCase, isDarkMode && styles.darkDescription]}>
-        💡 Use case: Form defaults, placeholder values, fallback content, empty
+        Use case: Form defaults, placeholder values, fallback content, empty
         states
       </Text>
     </View>

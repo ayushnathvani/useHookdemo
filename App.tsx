@@ -6,27 +6,38 @@
  * @format
  */
 
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar, useColorScheme } from 'react-native';
 import 'react-native-gesture-handler';
 
+// Existing screens
 import StateManagementScreen from './src/screens/StateManagementScreen';
 import TimingHooksScreen from './src/screens/TimingHooksScreen';
-import DeviceHooksScreen from './src/screens/DeviceHooksScreen';
 import UtilityHooksScreen from './src/screens/UtilityHooksScreen';
-// import ExamplesListScreen from './src/screens/ExamplesListScreen';
+import DeviceHooksScreen from './src/screens/DeviceHooksScreen';
+
+// New screens
+import DataFetchingHooksScreen from './src/screens/DataFetchingHooksScreen';
+import BrowserAPIHooksScreen from './src/screens/BrowserAPIHooksScreen';
+
+// Example screens
 import TodoAppScreen from './src/screens/examples/TodoAppScreen';
 import ShoppingCartScreen from './src/screens/examples/ShoppingCartScreen';
+import SmartFormValidationScreen from './src/screens/examples/SmartFormValidationScreen';
 import ExamplesListScreen from './src/screens/ExamplesListScreen';
 
-const Tab = createBottomTabNavigator();
+const Tab = createMaterialTopTabNavigator();
 const Stack = createStackNavigator();
 
 // Examples Stack Navigator
-function ExamplesStack() {
+function ExamplesStack({
+  setTabBarVisible,
+}: {
+  setTabBarVisible: (visible: boolean) => void;
+}) {
   const isDarkMode = useColorScheme() === 'dark';
 
   return (
@@ -38,6 +49,17 @@ function ExamplesStack() {
         headerTintColor: isDarkMode ? '#fff' : '#333',
         headerTitleStyle: {
           fontWeight: 'bold',
+        },
+      }}
+      screenListeners={{
+        state: e => {
+          // Hide tabs when navigating to individual example screens
+          const state = e.data.state;
+          if (state) {
+            const currentRoute = state.routes[state.index];
+            const isOnExamplesList = currentRoute.name === 'ExamplesList';
+            setTabBarVisible(isOnExamplesList);
+          }
         },
       }}
     >
@@ -56,6 +78,11 @@ function ExamplesStack() {
         component={ShoppingCartScreen}
         options={{ title: 'Smart Shopping Cart' }}
       />
+      <Stack.Screen
+        name="SmartFormValidation"
+        component={SmartFormValidationScreen}
+        options={{ title: 'Smart Form Validation' }}
+      />
     </Stack.Navigator>
   );
 }
@@ -63,21 +90,37 @@ function ExamplesStack() {
 // Tab Navigator Component
 function MainTabNavigator() {
   const isDarkMode = useColorScheme() === 'dark';
+  const [tabBarVisible, setTabBarVisible] = useState(true);
+
+  const ExamplesWithTabControl = useCallback(() => {
+    return <ExamplesStack setTabBarVisible={setTabBarVisible} />;
+  }, []);
 
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarStyle: {
-          backgroundColor: isDarkMode ? '#333' : '#fff',
+        tabBarScrollEnabled: true,
+        tabBarStyle: tabBarVisible
+          ? {
+              backgroundColor: isDarkMode ? '#111' : '#fff',
+              elevation: 4,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.08,
+            }
+          : { display: 'none' },
+        tabBarIndicatorStyle: {
+          backgroundColor: '#1976d2',
+          height: 3,
         },
         tabBarActiveTintColor: '#1976d2',
         tabBarInactiveTintColor: isDarkMode ? '#888' : '#666',
-        headerStyle: {
-          backgroundColor: isDarkMode ? '#333' : '#fff',
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
         },
-        headerTintColor: isDarkMode ? '#fff' : '#333',
-        headerTitleStyle: {
-          fontWeight: 'bold',
+        tabBarItemStyle: {
+          width: 85,
         },
       }}
     >
@@ -106,6 +149,15 @@ function MainTabNavigator() {
         }}
       />
       <Tab.Screen
+        name="DataFetching"
+        component={DataFetchingHooksScreen}
+        options={{
+          title: 'Data',
+          tabBarLabel: 'Data',
+        }}
+      />
+
+      <Tab.Screen
         name="UtilityHooks"
         component={UtilityHooksScreen}
         options={{
@@ -115,11 +167,10 @@ function MainTabNavigator() {
       />
       <Tab.Screen
         name="Examples"
-        component={ExamplesStack}
+        component={ExamplesWithTabControl}
         options={{
           title: 'Examples',
           tabBarLabel: 'Examples',
-          headerShown: false, // Hide tab header since stack has its own
         }}
       />
     </Tab.Navigator>

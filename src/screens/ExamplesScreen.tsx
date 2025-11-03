@@ -98,7 +98,7 @@ const ShoppingCartExample = ({ isDarkMode }: { isDarkMode: boolean }) => {
   return (
     <View style={[styles.exampleCard, isDarkMode && styles.darkCard]}>
       <Text style={[styles.exampleTitle, isDarkMode && styles.darkText]}>
-        🛒 Shopping Cart
+        Shopping Cart
       </Text>
       <Text
         style={[
@@ -358,7 +358,7 @@ const FormExample = ({ isDarkMode }: { isDarkMode: boolean }) => {
   return (
     <View style={[styles.exampleCard, isDarkMode && styles.darkCard]}>
       <Text style={[styles.exampleTitle, isDarkMode && styles.darkText]}>
-        📝 Smart Form
+         Smart Form
       </Text>
       <Text
         style={[

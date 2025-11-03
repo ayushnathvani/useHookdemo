@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -103,13 +103,15 @@ const TodoAppScreen = () => {
     dueDate: '',
   });
 
-  // Statistics
+  // Statistics - Fixed to recalculate properly
   const totalTodos = todos.length;
   const completedCount = todos.filter(todo => todo.completed).length;
   const pendingCount = totalTodos - completedCount;
-  const [completionRate] = useState(() =>
-    totalTodos > 0 ? Math.round((completedCount / totalTodos) * 100) : 0,
-  );
+
+  // Fix: Calculate completion rate dynamically
+  const completionRate = useMemo(() => {
+    return totalTodos > 0 ? Math.round((completedCount / totalTodos) * 100) : 0;
+  }, [completedCount, totalTodos]);
 
   // Progress tracking
   const [productivityScore, { increment: incrementScore, reset: resetScore }] =
@@ -175,14 +177,15 @@ const TodoAppScreen = () => {
       const todoIndex = todos.findIndex(todo => todo.id === todoId);
       if (todoIndex >= 0) {
         const updatedTodos = [...todos];
+        const wasCompleted = updatedTodos[todoIndex].completed;
         updatedTodos[todoIndex] = {
           ...updatedTodos[todoIndex],
           completed: !updatedTodos[todoIndex].completed,
         };
         setTodos(updatedTodos);
 
-        // Update productivity score
-        if (!updatedTodos[todoIndex].completed) {
+        // Update productivity score - Fix: Check if completing (not uncompleting)
+        if (!wasCompleted && updatedTodos[todoIndex].completed) {
           incrementScore();
         }
       }
@@ -202,7 +205,10 @@ const TodoAppScreen = () => {
             {
               text: 'Delete',
               style: 'destructive',
-              onPress: () => removeTodo(todoIndex),
+              onPress: () => {
+                removeTodo(todoIndex);
+                console.log('Todo deleted, remaining todos:', todos.length - 1);
+              },
             },
           ],
         );
@@ -211,6 +217,7 @@ const TodoAppScreen = () => {
     [todos, removeTodo],
   );
 
+  // Fix: Improved addNewTodo function
   const addNewTodo = useCallback(() => {
     if (!newTodo.text.trim()) {
       Alert.alert('Error', 'Please enter a todo text');
@@ -218,7 +225,7 @@ const TodoAppScreen = () => {
     }
 
     const todo: Todo = {
-      id: Date.now().toString(),
+      id: `todo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // More unique ID
       text: newTodo.text.trim(),
       completed: false,
       priority: newTodo.priority,
@@ -231,7 +238,13 @@ const TodoAppScreen = () => {
       dueDate: newTodo.dueDate || undefined,
     };
 
-    addTodo(todo);
+    console.log('Adding new todo:', todo);
+    console.log('Current todos count:', todos.length);
+
+    // Fix: Use a more reliable way to add todo
+    setTodos([...todos, todo]);
+
+    // Reset form
     setNewTodo({
       text: '',
       priority: 'medium',
@@ -239,8 +252,32 @@ const TodoAppScreen = () => {
       tags: '',
       dueDate: '',
     });
+
+    // Close modal
     toggleAddModal();
-  }, [newTodo, addTodo, toggleAddModal]);
+
+    console.log('Todo added successfully');
+  }, [newTodo, todos, setTodos, toggleAddModal]);
+
+  // Add a clear all todos function for testing
+  const clearAllTodos = useCallback(() => {
+    Alert.alert(
+      'Clear All Todos',
+      'Are you sure you want to delete all todos?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear All',
+          style: 'destructive',
+          onPress: () => {
+            setTodos([]);
+            resetScore();
+            console.log('All todos cleared');
+          },
+        },
+      ],
+    );
+  }, [setTodos, resetScore]);
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -264,9 +301,21 @@ const TodoAppScreen = () => {
     <View style={[styles.container, isDarkMode && styles.darkContainer]}>
       {/* Header with Statistics */}
       <View style={[styles.header, isDarkMode && styles.darkCard]}>
-        <Text style={[styles.title, isDarkMode && styles.darkText]}>
-          Advanced Todo App
-        </Text>
+        <View style={styles.headerRow}>
+          <Text style={[styles.title, isDarkMode && styles.darkText]}>
+            Advanced Todo App
+          </Text>
+
+          {/* Add Clear All button for testing */}
+          {totalTodos > 0 && (
+            <TouchableOpacity
+              style={styles.clearAllButton}
+              onPress={clearAllTodos}
+            >
+              <Text style={styles.clearAllButtonText}>Clear All</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
@@ -311,105 +360,127 @@ const TodoAppScreen = () => {
           </View>
         </View>
 
-        <View style={styles.progressBar}>
-          <View
-            style={[styles.progressFill, { width: `${completionRate}%` }]}
-          />
-        </View>
-        <Text
-          style={[styles.progressText, isDarkMode && styles.darkDescription]}
-        >
-          {completionRate}% Completed
-        </Text>
+        {totalTodos > 0 && (
+          <>
+            <View style={styles.progressBar}>
+              <View
+                style={[styles.progressFill, { width: `${completionRate}%` }]}
+              />
+            </View>
+            <Text
+              style={[
+                styles.progressText,
+                isDarkMode && styles.darkDescription,
+              ]}
+            >
+              {completionRate}% Completed
+            </Text>
+          </>
+        )}
+
+        {totalTodos === 0 && (
+          <View style={styles.emptyStatsState}>
+            <Text
+              style={[
+                styles.emptyStatsText,
+                isDarkMode && styles.darkDescription,
+              ]}
+            >
+              No todos yet. Add your first todo below! 🚀
+            </Text>
+          </View>
+        )}
       </View>
 
-      {/* Search and Filters */}
-      <View style={[styles.filtersContainer, isDarkMode && styles.darkCard]}>
-        <TextInput
-          style={[styles.searchInput, isDarkMode && styles.darkInput]}
-          placeholder="Search todos, tags, or categories..."
-          placeholderTextColor={isDarkMode ? '#888' : '#666'}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
+      {/* Search and Filters - Only show if there are todos */}
+      {totalTodos > 0 && (
+        <View style={[styles.filtersContainer, isDarkMode && styles.darkCard]}>
+          <TextInput
+            style={[styles.searchInput, isDarkMode && styles.darkInput]}
+            placeholder="Search todos, tags, or categories..."
+            placeholderTextColor={isDarkMode ? '#888' : '#666'}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
 
-        {/* Category Filter */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.categoryFilter}
-        >
-          {categories.map(category => (
-            <TouchableOpacity
-              key={category.id}
-              style={[
-                styles.categoryButton,
-                { borderColor: category.color },
-                selectedCategory === category.id && {
-                  backgroundColor: category.color,
-                },
-              ]}
-              onPress={() => setSelectedCategory(category.id)}
-            >
-              <Text
+          {/* Category Filter */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.categoryFilter}
+          >
+            {categories.map(category => (
+              <TouchableOpacity
+                key={category.id}
                 style={[
-                  styles.categoryButtonText,
-                  {
-                    color:
-                      selectedCategory === category.id
-                        ? '#fff'
-                        : category.color,
+                  styles.categoryButton,
+                  { borderColor: category.color },
+                  selectedCategory === category.id && {
+                    backgroundColor: category.color,
                   },
                 ]}
-              >
-                {category.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* Priority and Sort Controls */}
-        <View style={styles.controlsRow}>
-          <View style={styles.priorityFilter}>
-            <Text style={[styles.filterLabel, isDarkMode && styles.darkText]}>
-              Priority:
-            </Text>
-            {(['all', 'high', 'medium', 'low'] as const).map(priority => (
-              <TouchableOpacity
-                key={priority}
-                style={[
-                  styles.priorityButton,
-                  selectedPriority === priority &&
-                    styles.selectedPriorityButton,
-                ]}
-                onPress={() => setSelectedPriority(priority)}
+                onPress={() => setSelectedCategory(category.id)}
               >
                 <Text
                   style={[
-                    styles.priorityButtonText,
-                    selectedPriority === priority &&
-                      styles.selectedPriorityText,
+                    styles.categoryButtonText,
+                    {
+                      color:
+                        selectedCategory === category.id
+                          ? '#fff'
+                          : category.color,
+                    },
                   ]}
                 >
-                  {priority}
+                  {category.name}
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
 
-          <TouchableOpacity
-            style={[
-              styles.toggleButton,
-              showCompleted && styles.toggleButtonActive,
-            ]}
-            onPress={() => toggleShowCompleted()}
-          >
-            <Text style={styles.toggleButtonText}>
-              {showCompleted ? 'Hide' : 'Show'} Completed
-            </Text>
-          </TouchableOpacity>
+          {/* Priority and Sort Controls */}
+          <View style={styles.controlsRow}>
+            <View style={styles.priorityFilter}>
+              <Text style={[styles.filterLabel, isDarkMode && styles.darkText]}>
+                Priority:
+              </Text>
+              {(['all', 'high', 'medium', 'low'] as const).map(priority => (
+                <TouchableOpacity
+                  key={priority}
+                  style={[
+                    styles.priorityButton,
+                    selectedPriority === priority &&
+                      styles.selectedPriorityButton,
+                  ]}
+                  onPress={() => setSelectedPriority(priority)}
+                >
+                  <Text
+                    style={[
+                      styles.priorityButtonText,
+                      selectedPriority === priority &&
+                        styles.selectedPriorityText,
+                    ]}
+                  >
+                    {priority}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                showCompleted && styles.toggleButtonActive,
+              ]}
+              onPress={() => toggleShowCompleted()}
+            >
+              <Text style={styles.toggleButtonText}>
+                {showCompleted ? 'Hide' : 'Show'} Completed
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      )}
 
       {/* Todo List */}
       <ScrollView style={styles.todoList}>
@@ -488,7 +559,7 @@ const TodoAppScreen = () => {
           </View>
         ))}
 
-        {filteredAndSortedTodos().length === 0 && (
+        {totalTodos > 0 && filteredAndSortedTodos().length === 0 && (
           <View style={styles.emptyState}>
             <Text
               style={[
@@ -498,7 +569,29 @@ const TodoAppScreen = () => {
             >
               {debouncedSearch
                 ? 'No todos match your search'
-                : 'No todos found'}
+                : 'No todos found with current filters'}
+            </Text>
+          </View>
+        )}
+
+        {totalTodos === 0 && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateIcon}>📝</Text>
+            <Text
+              style={[
+                styles.emptyStateText,
+                isDarkMode && styles.darkDescription,
+              ]}
+            >
+              Your todo list is empty
+            </Text>
+            <Text
+              style={[
+                styles.emptyStateSubtext,
+                isDarkMode && styles.darkDescription,
+              ]}
+            >
+              Tap the "Add Todo" button below to get started!
             </Text>
           </View>
         )}
@@ -532,6 +625,7 @@ const TodoAppScreen = () => {
               value={newTodo.text}
               onChangeText={text => setNewTodo(prev => ({ ...prev, text }))}
               multiline
+              autoFocus
             />
 
             <View style={styles.modalRow}>
@@ -619,13 +713,28 @@ const TodoAppScreen = () => {
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => toggleAddModal()}
+                onPress={() => {
+                  toggleAddModal();
+                  // Reset form when canceling
+                  setNewTodo({
+                    text: '',
+                    priority: 'medium',
+                    category: 'personal',
+                    tags: '',
+                    dueDate: '',
+                  });
+                }}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
+                style={[
+                  styles.modalButton,
+                  styles.saveButton,
+                  !newTodo.text.trim() && styles.disabledButton,
+                ]}
                 onPress={addNewTodo}
+                disabled={!newTodo.text.trim()}
               >
                 <Text style={styles.saveButtonText}>Add Todo</Text>
               </TouchableOpacity>
@@ -653,11 +762,27 @@ const styles = StyleSheet.create({
   darkCard: {
     backgroundColor: '#2a2a2a',
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 16,
+  },
+  clearAllButton: {
+    backgroundColor: '#f44336',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  clearAllButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
   statsContainer: {
     flexDirection: 'row',
@@ -691,6 +816,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
+  },
+  emptyStatsState: {
+    backgroundColor: '#e3f2fd',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  emptyStatsText: {
+    fontSize: 16,
+    color: '#1976d2',
+    fontWeight: '500',
   },
   filtersContainer: {
     backgroundColor: '#fff',
@@ -878,9 +1014,21 @@ const styles = StyleSheet.create({
     padding: 40,
     alignItems: 'center',
   },
+  emptyStateIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
   emptyStateText: {
-    fontSize: 16,
+    fontSize: 18,
     color: '#666',
+    fontWeight: '500',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
     fontStyle: 'italic',
   },
   addButton: {
@@ -982,6 +1130,10 @@ const styles = StyleSheet.create({
   saveButton: {
     backgroundColor: '#4caf50',
     marginLeft: 8,
+  },
+  disabledButton: {
+    backgroundColor: '#ccc',
+    opacity: 0.6,
   },
   cancelButtonText: {
     color: '#666',
