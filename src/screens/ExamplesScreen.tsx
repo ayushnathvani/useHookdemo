@@ -30,11 +30,37 @@ const mockSearchData = [
   'Vivo X100',
 ];
 
-const ExamplesScreen = () => {
+interface ExamplesScreenProps {
+  navigation?: any;
+}
+
+const ExamplesScreen = ({ navigation }: ExamplesScreenProps) => {
   const isDarkMode = useColorScheme() === 'dark';
 
   return (
     <ScrollView style={[styles.container, isDarkMode && styles.darkContainer]}>
+      {/* Advanced UseFetch Demo Navigation */}
+      <View style={[styles.exampleCard, isDarkMode && styles.darkCard]}>
+        <Text style={[styles.exampleTitle, isDarkMode && styles.darkText]}>
+          🚀 Advanced UseFetch Demo
+        </Text>
+        <Text
+          style={[
+            styles.exampleDescription,
+            isDarkMode && styles.darkDescription,
+          ]}
+        >
+          Explore our custom useAdvancedFetch hook with product listing,
+          pagination, and refresh functionality
+        </Text>
+        <TouchableOpacity
+          style={styles.demoButton}
+          onPress={() => navigation?.navigate?.('AdvancedUseFetch')}
+        >
+          <Text style={styles.demoButtonText}>View Advanced Fetch Demo →</Text>
+        </TouchableOpacity>
+      </View>
+
       <ShoppingCartExample isDarkMode={isDarkMode} />
       <SearchExample isDarkMode={isDarkMode} />
       <FormExample isDarkMode={isDarkMode} />
@@ -358,7 +384,7 @@ const FormExample = ({ isDarkMode }: { isDarkMode: boolean }) => {
   return (
     <View style={[styles.exampleCard, isDarkMode && styles.darkCard]}>
       <Text style={[styles.exampleTitle, isDarkMode && styles.darkText]}>
-         Smart Form
+        Smart Form
       </Text>
       <Text
         style={[
@@ -1442,6 +1468,19 @@ const styles = StyleSheet.create({
   },
   darkDescription: {
     color: '#888',
+  },
+  demoButton: {
+    backgroundColor: '#1976d2',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  demoButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

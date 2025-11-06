@@ -57,20 +57,21 @@ const ExamplesListScreen = () => {
         'Filtering & search',
       ],
     },
-  ];
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'Beginner':
-        return '#4caf50';
-      case 'Intermediate':
-        return '#ff9800';
-      case 'Advanced':
-        return '#f44336';
-      default:
-        return '#666';
-    }
-  };
+    {
+      id: 'advanced-fetch',
+      title: '🚀 Advanced useFetch Demo',
+      description:
+        'Production-ready data fetching with caching, retries, mutations, and pagination',
+      hooks: ['useAdvancedFetch', 'usePaginatedFetch'],
+      features: [
+        'Smart caching & stale-while-revalidate',
+        'Request deduplication & retries',
+        'Optimistic updates & mutations',
+        'Paginated data with navigation',
+      ],
+    },
+  ];
 
   const handleExamplePress = (exampleId: string) => {
     switch (exampleId) {
@@ -82,6 +83,9 @@ const ExamplesListScreen = () => {
         break;
       case 'smart-form':
         (navigation as any).navigate('SmartFormValidation');
+        break;
+      case 'advanced-fetch':
+        (navigation as any).navigate('AdvancedUseFetch');
         break;
       default:
         // For now, show alert for other examples
@@ -114,9 +118,6 @@ const ExamplesListScreen = () => {
             <Text style={[styles.exampleTitle, isDarkMode && styles.darkText]}>
               {example.title}
             </Text>
-            <View>
-              <Text style={styles.difficultyText}>{example.difficulty}</Text>
-            </View>
           </View>
 
           <Text

@@ -21,12 +21,12 @@ import DeviceHooksScreen from './src/screens/DeviceHooksScreen';
 
 // New screens
 import DataFetchingHooksScreen from './src/screens/DataFetchingHooksScreen';
-import BrowserAPIHooksScreen from './src/screens/BrowserAPIHooksScreen';
 
 // Example screens
 import TodoAppScreen from './src/screens/examples/TodoAppScreen';
 import ShoppingCartScreen from './src/screens/examples/ShoppingCartScreen';
 import SmartFormValidationScreen from './src/screens/examples/SmartFormValidationScreen';
+import AdvancedUseFetchScreen from './src/screens/examples/AdvancedUseFetchScreen';
 import ExamplesListScreen from './src/screens/ExamplesListScreen';
 
 const Tab = createMaterialTopTabNavigator();
@@ -82,6 +82,11 @@ function ExamplesStack({
         name="SmartFormValidation"
         component={SmartFormValidationScreen}
         options={{ title: 'Smart Form Validation' }}
+      />
+      <Stack.Screen
+        name="AdvancedUseFetch"
+        component={AdvancedUseFetchScreen}
+        options={{ title: 'Advanced useFetch Demo' }}
       />
     </Stack.Navigator>
   );

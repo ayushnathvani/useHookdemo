@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -271,9 +271,6 @@ const CRUDListDemo = ({ isDarkMode }: { isDarkMode: boolean }) => {
     data: todos,
     error,
     loading,
-    addItem,
-    updateItem,
-    deleteItem,
     setData,
   } = useListFetch('https://jsonplaceholder.typicode.com/todos?_limit=5');
 
